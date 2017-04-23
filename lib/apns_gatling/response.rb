@@ -1,10 +1,13 @@
+require 'json'
+
 module ApnsGatling
   class Response
+    # See: https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
     attr_reader :headers, :data
 
-    def initialize(options={})
-      @headers = options[:headers]
-      @data    = options[:body]
+    def initialize(headers, data)
+      @headers = headers
+      @data = data
     end
 
     def status
@@ -19,6 +22,15 @@ module ApnsGatling
       JSON.parse(@data) rescue @data
     end
 
-    # TODO: error process
+    def error
+      if status != '200'
+        e = {}
+        e.merge!(status: @headers[':status']) if @headers[':status']
+        e.merge!('apns-id' => @headers['apns-id']) if @headers['apns-id']
+        e.merge!(reason: @data[:reason]) if @data[:reason]
+        e.merge!(timestamp: @data[:timestamp]) if @data[:timestamp]
+        e
+      end
+    end
   end
 end
