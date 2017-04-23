@@ -12,11 +12,11 @@ module ApnsGatling
 
     private
     def headers_from(message, auth_token, host, path)
-      headers = {scheme: 'https',
-                 method: 'POST',
-                 host: host,
-                 path: path,
-                 authorization: "bearer #{auth_token}"}
+      headers = {':scheme' => 'https',
+                 ':method' => 'POST',
+                 'host' => host,
+                 ':path' => path,
+                 'authorization' => "bearer #{auth_token}"}
       headers.merge!('apns-id' => message.apns_id) if message.apns_id
       headers.merge!('apns-expiration' => message.expiration.to_s) if message.expiration
       headers.merge!('apqs-priority' => message.priority.to_s) if message.priority
