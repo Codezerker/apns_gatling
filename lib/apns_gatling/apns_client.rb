@@ -6,16 +6,31 @@ module ApnsGatling
   APPLE_PRODUCTION_SERVER = "api.push.apple.com"
 
   class Client
-    attr_reader :client, :token_maker
+    attr_reader :connection, :token_maker, :token, :sandbox
 
-    def initialize(team_id, auth_key_id, ecdsa_key)
-      @token_maker = ApnsGatling::Token.new(team_id, auth_key_id, ecdsa_key)
-      @client = HTTP2::Client.new
+    def initialize(team_id, auth_key_id, ecdsa_key, sandbox = false)
+      @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
+      @connection = HTTP2::Client.new
+      @sandbox = sandbox
+    end
+
+    def update_token()
+      @token = token_maker.new_token
+    end
+
+    def host
+      if sandbox
+        APPLE_DEVELOPMENT_SERVER
+      else
+        APPLE_PRODUCTION_SERVER
+      end
     end
 
     def push(message)
-      request = ApnsGatling::Request.new(message)
+      update_token unless @token
+      request = Request.new(message, @token, host)
       # TODO:
     end
+    # TODO: regenerate auth token
   end
 end
