@@ -11,10 +11,13 @@ module ApnsGatling
 
     attr_reader :connection, :token_maker, :token, :sandbox
     attr_writer :socket
+    attr_reader :response_headers, :response_data
 
     def initialize(team_id, auth_key_id, ecdsa_key, sandbox = false)
       @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
       @sandbox = sandbox
+      @response_data = ''
+      @response_headers = {}
     end
 
     def new_connection()
@@ -106,21 +109,22 @@ module ApnsGatling
       request = Request.new(message, @token, host)
 
       stream = @connection.new_stream
-      headers = nil
-      stream.on(:headers) do |h|
-        headers = h
-        puts "get response headers"
-      end
-
-      data = nil
-      stream.on(:data) do |d|
-        data = d
-        puts "get response data"
-      end
-
       stream.on(:close) do
-        response = Response.new(headers, data)
+        response = Response.new(@response_headers, @response_data)
         yield response
+      end
+
+      stream.on(:half_close) do
+        puts "closing client-end of the stream"
+      end
+
+      stream.on(:headers) do |h|
+        hs = Hash[*h.flatten]
+        @response_headers.merge!(hs)
+      end
+
+      stream.on(:data) do |d|
+        @response_data << d
       end
 
       stream.on(:altsvc) do |f|
