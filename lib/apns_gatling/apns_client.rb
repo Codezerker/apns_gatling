@@ -127,8 +127,11 @@ module ApnsGatling
       timestamp = Time.new.to_i
       if timestamp - @token_generated_at > 3550
         puts "generate provider token"
-        @token_generated_at = timestamp
-        @token = @token_maker.new_token
+        @mutex.synchronize do 
+          @token_generated_at = timestamp
+          @token = @token_maker.new_token
+        end
+        @token
       else
         @token
       end
@@ -162,7 +165,9 @@ module ApnsGatling
       end
 
       stream.on(:close) do
-        @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
+        @mutex.synchronize do 
+          @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
+        end
         yield response
       end
 
