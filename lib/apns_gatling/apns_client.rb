@@ -126,8 +126,9 @@ module ApnsGatling
     def provider_token
       timestamp = Time.new.to_i
       if timestamp - @token_generated_at > 3550
-        @token = @token_maker.new_token
+        puts "generate provider token"
         @token_generated_at = timestamp
+        @token = @token_maker.new_token
       else
         @token
       end
