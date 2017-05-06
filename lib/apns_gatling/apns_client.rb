@@ -9,8 +9,7 @@ module ApnsGatling
   class Client
     DRAFT = 'h2'.freeze
 
-    attr_reader :connection, :token_maker, :token, :sandbox, :socket_thread
-    attr_writer :socket
+    attr_reader :connection, :token_maker, :token, :sandbox
 
     def initialize(team_id, auth_key_id, ecdsa_key, sandbox = false)
       @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
@@ -29,6 +28,71 @@ module ApnsGatling
       end
     end
 
+    def provider_token
+      timestamp = Time.new.to_i
+      if timestamp - @token_generated_at > 3550
+        puts "generate provider token"
+        @mutex.synchronize do 
+          @token_generated_at = timestamp
+          @token = @token_maker.new_token
+        end
+        @token
+      else
+        @token
+      end
+    end
+
+    def host
+      if sandbox
+        APPLE_DEVELOPMENT_SERVER
+      else
+        APPLE_PRODUCTION_SERVER
+      end
+    end
+
+    # push message
+    def push(message)
+      request = Request.new(message, provider_token, host)
+      response = Response.new
+      ensure_socket_open
+
+      begin
+        stream = connection.new_stream
+        puts "stream id: #{stream.id}"
+      rescue StandardError => e
+        close
+        raise e
+      end
+
+      stream.on(:close) do
+        @mutex.synchronize do 
+          @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
+        end
+        yield response
+      end
+
+      stream.on(:half_close) do
+        puts "closing client-end of the stream"
+      end
+
+      stream.on(:headers) do |h|
+        hs = Hash[*h.flatten]
+        response.headers.merge!(hs)
+      end
+
+      stream.on(:data) do |d|
+        response.data << d
+      end
+
+      stream.on(:altsvc) do |f|
+        puts "received ALTSVC #{f}"
+      end
+
+      stream.headers(request.headers, end_stream: false)
+      stream.data(request.data)
+    end
+    
+    # connection
     def connection
       @connection ||= HTTP2::Client.new.tap do |conn|
         conn.on(:frame) do |bytes|
@@ -64,6 +128,7 @@ module ApnsGatling
       end
     end
 
+    # scoket 
     def ensure_socket_open
       @mutex.synchronize do 
         return if @socket_thread
@@ -107,6 +172,12 @@ module ApnsGatling
       socket
     end
 
+    def ensure_sent_before_receiving
+      while !@first_data_sent
+        sleep 0.01
+      end
+    end
+
     def socket_loop
       ensure_sent_before_receiving
       loop do
@@ -123,75 +194,6 @@ module ApnsGatling
       end
     end
 
-    def provider_token
-      timestamp = Time.new.to_i
-      if timestamp - @token_generated_at > 3550
-        puts "generate provider token"
-        @mutex.synchronize do 
-          @token_generated_at = timestamp
-          @token = @token_maker.new_token
-        end
-        @token
-      else
-        @token
-      end
-    end
-
-    def host
-      if sandbox
-        APPLE_DEVELOPMENT_SERVER
-      else
-        APPLE_PRODUCTION_SERVER
-      end
-    end
-
-    def ensure_sent_before_receiving
-      while !@first_data_sent
-        sleep 0.01
-      end
-    end
-
-    def push(message)
-      request = Request.new(message, provider_token, host)
-      response = Response.new
-      ensure_socket_open
-
-      begin
-        stream = connection.new_stream
-        puts "stream id: #{stream.id}"
-      rescue StandardError => e
-        close
-        raise e
-      end
-
-      stream.on(:close) do
-        @mutex.synchronize do 
-          @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
-        end
-        yield response
-      end
-
-      stream.on(:half_close) do
-        puts "closing client-end of the stream"
-      end
-
-      stream.on(:headers) do |h|
-        hs = Hash[*h.flatten]
-        response.headers.merge!(hs)
-      end
-
-      stream.on(:data) do |d|
-        response.data << d
-      end
-
-      stream.on(:altsvc) do |f|
-        puts "received ALTSVC #{f}"
-      end
-
-      stream.headers(request.headers, end_stream: false)
-      stream.data(request.data)
-    end
-    
     def close
       exit_thread(@socket_thread)
       init_vars
@@ -201,6 +203,10 @@ module ApnsGatling
       return unless thread
       thread.exit
       thread.join
+    end
+
+    def join
+      @socket_thread.join if @socket_thread
     end
   end
 end
