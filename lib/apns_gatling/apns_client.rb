@@ -16,6 +16,7 @@ module ApnsGatling
       @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
       @sandbox = sandbox
       @mutex = Mutex.new
+      init_vars
     end
 
     def init_vars
@@ -24,6 +25,7 @@ module ApnsGatling
         @socket = nil
         @socket_thread = nil
         @first_data_sent = false
+        @token_generated_at = 0
       end
     end
 
@@ -121,8 +123,14 @@ module ApnsGatling
       end
     end
 
-    def update_token()
-      @token = @token_maker.new_token
+    def provider_token
+      timestamp = Time.new.to_i
+      if timestamp - @token_generated_at > 3550
+        @token = @token_maker.new_token
+        @token_generated_at = timestamp
+      else
+        @token
+      end
     end
 
     def host
@@ -140,8 +148,7 @@ module ApnsGatling
     end
 
     def push(message)
-      update_token unless @token
-      request = Request.new(message, @token, host)
+      request = Request.new(message, provider_token, host)
       response = Response.new
       ensure_socket_open
 
@@ -154,6 +161,7 @@ module ApnsGatling
       end
 
       stream.on(:close) do
+        @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
         yield response
       end
 
