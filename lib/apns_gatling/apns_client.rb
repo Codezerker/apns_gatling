@@ -33,7 +33,6 @@ module ApnsGatling
     def provider_token
       timestamp = Time.new.to_i
       if timestamp - @token_generated_at > 3550
-        puts "generate provider token"
         @mutex.synchronize do 
           @token_generated_at = timestamp
           @token = @token_maker.new_token
@@ -94,34 +93,11 @@ module ApnsGatling
     def connection
       @connection ||= HTTP2::Client.new.tap do |conn|
         conn.on(:frame) do |bytes|
-          puts "Sending bytes: #{bytes.unpack("H*").first}"
           @mutex.synchronize do
             @socket.write bytes
             @socket.flush
             @first_data_sent = true
           end
-        end
-
-        conn.on(:frame_sent) do |frame|
-          puts "Sent frame: #{frame.inspect}"
-        end
-
-        conn.on(:promise) do |promise|
-          promise.on(:headers) do |h|
-            puts "promise headers: #{h}"
-          end
-
-          promise.on(:data) do |d|
-            log.info "promise data chunk: <<#{d.size}>>"
-          end
-        end
-
-        conn.on(:frame_received) do |frame|
-          puts "Received frame: #{frame.inspect}"
-        end
-
-        conn.on(:altsvc) do |f|
-          puts "received ALTSVC #{f}"
         end
       end
     end
@@ -152,7 +128,6 @@ module ApnsGatling
       # For ALPN support, Ruby >= 2.3 and OpenSSL >= 1.0.2 are required
       ctx.alpn_protocols = [DRAFT]
       ctx.alpn_select_cb = lambda do |protocols|
-        puts "ALPN protocols supported by server: #{protocols}"
         DRAFT if protocols.include? DRAFT
       end
 
