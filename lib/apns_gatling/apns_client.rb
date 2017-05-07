@@ -15,6 +15,7 @@ module ApnsGatling
       @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
       @sandbox = sandbox
       @mutex = Mutex.new
+      @cv = ConditionVariable.new
       init_vars
     end
 
@@ -25,6 +26,7 @@ module ApnsGatling
         @socket_thread = nil
         @first_data_sent = false
         @token_generated_at = 0
+        @blocking = true
       end
     end
 
@@ -58,7 +60,6 @@ module ApnsGatling
 
       begin
         stream = connection.new_stream
-        puts "stream id: #{stream.id}"
       rescue StandardError => e
         close
         raise e
@@ -67,12 +68,12 @@ module ApnsGatling
       stream.on(:close) do
         @mutex.synchronize do 
           @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
+          if @blocking 
+            @blocking = false
+            @cv.signal
+          end
         end
         yield response
-      end
-
-      stream.on(:half_close) do
-        puts "closing client-end of the stream"
       end
 
       stream.on(:headers) do |h|
@@ -84,12 +85,9 @@ module ApnsGatling
         response.data << d
       end
 
-      stream.on(:altsvc) do |f|
-        puts "received ALTSVC #{f}"
-      end
-
       stream.headers(request.headers, end_stream: false)
       stream.data(request.data)
+      @mutex.synchronize { @cv.wait(@mutex, 60) } if @blocking
     end
     
     # connection
@@ -148,7 +146,6 @@ module ApnsGatling
     end
 
     def new_socket
-      puts ">>>> new scoket <<<<"
       ctx = OpenSSL::SSL::SSLContext.new
       ctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
