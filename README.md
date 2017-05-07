@@ -1,8 +1,7 @@
 # ApnsGatling
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/apns_gatling`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+ApnsGatling is a token based authenitcation APNs HTTP/2 gem. 
+[Communicating with APNs via HTTP2](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html) is the specification.
 
 ## Installation
 
@@ -22,7 +21,33 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+```
+require 'apns_gatling'
+require 'openssl'
+
+team_id = '<Your team id>'
+auth_key_id = '<Your auth key id>'
+auth_key_file = '<Your p8 cert file>'
+ecdsa_key = OpenSSL::PKey::EC.new File.read auth_key_file
+
+def message(body)
+  msg = ApnsGatling::Message.new '<device token>'
+  msg.alert = {title: "test", body: body}
+  msg.topic = '<Your App bundle ID>'
+  msg
+end
+
+client = ApnsGatling::Client.new team_id, auth_key_id, ecdsa_key, true
+
+6.times do |i|
+  puts "num #{i}"
+  client.push(message("test #{i}")) do |r|
+    puts "num #{i} success: #{r.ok?}, error: #{r.error}"
+  end
+end
+
+client.join
+```
 
 ## Development
 
@@ -32,5 +57,5 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/apns_gatling.
+Bug reports and pull requests are welcome on GitHub at https://github.com/Codezerker/apns_gatling.
 
