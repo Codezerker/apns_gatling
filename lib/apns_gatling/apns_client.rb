@@ -9,7 +9,7 @@ module ApnsGatling
   class Client
     DRAFT = 'h2'.freeze
 
-    attr_reader :connection, :token_maker, :token, :sandbox
+    attr_reader :token_maker, :token, :sandbox
 
     def initialize(team_id, auth_key_id, ecdsa_key, sandbox = false)
       @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
