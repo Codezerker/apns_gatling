@@ -6,11 +6,12 @@ require 'apns_gatling/version'
 Gem::Specification.new do |spec|
   spec.name          = "apns_gatling"
   spec.version       = ApnsGatling::VERSION
+  spec.licenses      = ["MIT"]
   spec.authors       = ["Cloud"]
   spec.email         = ["cloudcry@gmail.com"]
 
   spec.summary       = %q{A Ruby Token Based Authentication APNs HTTP/2 gem.}
-  spec.description   = spec.summary
+  spec.description   = %q{ApnsGatling is a token based authenitcation APNs HTTP/2 gem. }
   spec.homepage      = "https://github.com/cloudorz/apns_gatling"
 
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
@@ -21,8 +22,8 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "http-2", "~> 0.8.3"
-  spec.add_dependency "jwt", "~> 1.5.6"
-  spec.add_dependency "json", "~> 2.0.3"
+  spec.add_dependency "jwt", "~> 1.5"
+  spec.add_dependency "json", "~> 2.0"
 
   spec.add_development_dependency "bundler", "~> 1.13"
   spec.add_development_dependency "rake", "~> 10.0"
