@@ -28,9 +28,8 @@ module ApnsGatling
         e.merge!(status: @headers[':status']) if @headers[':status']
         e.merge!('apns-id' => @headers['apns-id']) if @headers['apns-id']
         data = parse_data
-        puts "data: #{data} raw #{@data}"
-        e.merge!(reason: data[:reason]) if data[:reason]
-        e.merge!(timestamp: data[:timestamp]) if data[:timestamp]
+        e.merge!(reason: data['reason']) if data['reason']
+        e.merge!(timestamp: data['timestamp']) if data['timestamp']
         e
       end
     end
