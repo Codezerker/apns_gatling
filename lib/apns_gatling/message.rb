@@ -7,7 +7,7 @@ module ApnsGatling
     MAXIMUM_PAYLOAD_SIZE = 4096
 
     attr_reader :token
-    attr_accessor :alert, :badge, :sound, :content_available, :category, :custom_payload, :thread_id
+    attr_accessor :alert, :badge, :sound, :content_available, :mutable_content, :category, :custom_payload, :thread_id
     attr_accessor :apns_id, :expiration, :priority, :topic, :apns_collapse_id
 
    def initialize(token)
@@ -31,6 +31,7 @@ module ApnsGatling
      aps.merge!(sound: sound) if sound
      aps.merge!(category: category) if category
      aps.merge!('content-available' => content_available) if content_available
+     aps.merge!('mutable-content' => mutable_content) if mutable_content
      aps.merge!('thread-id' => thread_id) if thread_id
 
      message = {aps: aps}
