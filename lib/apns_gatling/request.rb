@@ -4,7 +4,7 @@ module ApnsGatling
 
     def initialize(message, auth_token, host)
       path = "/3/device/#{message.token}"
-      @id = message.token + message.apns_id
+      @id = message.apns_id
       @path = path
       @auth_token = auth_token
       @headers = headers_from message, auth_token, host, path
