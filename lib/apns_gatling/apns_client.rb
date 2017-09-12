@@ -54,7 +54,7 @@ module ApnsGatling
 
     def connection_error(e)
       @mutex.synchronize do 
-        @requests.values do | request | 
+        @requests.values.map do | request | 
           block = request[:block]
           response = request[:response]
           if block && response
