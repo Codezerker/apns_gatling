@@ -15,6 +15,7 @@ module ApnsGatling
       @token_maker = Token.new(team_id, auth_key_id, ecdsa_key)
       @sandbox = sandbox
       @mutex = Mutex.new
+      @requests = {}
       @cv = ConditionVariable.new
       init_vars
     end
@@ -51,28 +52,62 @@ module ApnsGatling
       end
     end
 
+    def connection_error(e)
+      @mutex.synchronize do 
+        @requests.values do | request | 
+          block = request[:block]
+          response = request[:response]
+          if block && response
+            response.error_with("connection failed #{e}")
+            block.call response
+          end
+        end
+        @requests = {}
+        @connection = nil
+      end
+    end
+
     # push message
-    def push(message)
+    def push(message, &block)
       request = Request.new(message, provider_token, host)
-      response = Response.new
-      ensure_socket_open
+      response = Response.new(message)
+      @mutex.synchronize do 
+        @requests[request.id] = {block: block, response: response}
+      end
 
       begin
+        ensure_socket_open
         stream = connection.new_stream
+      rescue SocketError => e
+        response.error_with("create connection failed #{e}")
+        block.call response
+        return
+      rescue StreamLimitExceeded
+        response.error_with('stream limit exceeded')
+        block.call response
+        return
+      rescue ConnectionClosed
+        close
+        response.error_with('connection closed')
+        block.call response
+        return
       rescue StandardError => e
         close
-        raise e
+        response.error_with("standard error #{e}")
+        block.call response
+        return
       end
 
       stream.on(:close) do
         @mutex.synchronize do 
+          @requests.delete request.id
           @token_generated_at = 0 if response.status == '403' && response.error[:reason] == 'ExpiredProviderToken' 
           if @blocking 
             @blocking = false
             @cv.signal
           end
+          block.call response if block
         end
-        yield response
       end
 
       stream.on(:headers) do |h|
@@ -112,12 +147,12 @@ module ApnsGatling
             socket_loop
           rescue EOFError
             init_vars
-            raise SocketError.new('Socket was remotely closed')
+            connection_error(SocketError.new('Socket was remotely closed'))
           rescue Exception => e
             init_vars
-            raise e
+            connection_error(e)
           end
-        end.tap { |t| t.abort_on_exception = true }
+        end
       end
     end
 
@@ -169,6 +204,7 @@ module ApnsGatling
     def close
       exit_thread(@socket_thread)
       init_vars
+      @connection = nil
     end
 
     def exit_thread(thread)

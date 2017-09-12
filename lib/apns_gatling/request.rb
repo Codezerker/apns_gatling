@@ -1,9 +1,10 @@
 module ApnsGatling
   class Request
-    attr_reader :host, :path, :auth_token, :headers, :data
+    attr_reader :id, :host, :path, :auth_token, :headers, :data
 
     def initialize(message, auth_token, host)
       path = "/3/device/#{message.token}"
+      @id = message.token + message.apns_id
       @path = path
       @auth_token = auth_token
       @headers = headers_from message, auth_token, host, path
