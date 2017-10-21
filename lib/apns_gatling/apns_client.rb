@@ -82,11 +82,11 @@ module ApnsGatling
         response.error_with("create connection failed #{e}")
         block.call response
         return
-      rescue StreamLimitExceeded
+      rescue HTTP2::Error::StreamLimitExceeded
         response.error_with('stream limit exceeded')
         block.call response
         return
-      rescue ConnectionClosed
+      rescue HTTP::Error::ConnectionClosed
         close
         response.error_with('connection closed')
         block.call response
