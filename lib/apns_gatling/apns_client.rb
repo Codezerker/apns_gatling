@@ -86,7 +86,7 @@ module ApnsGatling
         response.error_with('stream limit exceeded')
         block.call response
         return
-      rescue HTTP::Error::ConnectionClosed
+      rescue HTTP2::Error::ConnectionClosed
         close
         response.error_with('connection closed')
         block.call response
